@@ -27,7 +27,8 @@ vec3 unstable_star_field(vec2 coord, float star_threshold) {
 	float twinkle_offset = tau * noise.w;
 	star *= 1.0 - twinkle_amount * cos(frameTimeCounter * twinkle_speed + twinkle_offset);
 
-	return star * color;
+	vec3 tint = vec3(0.4, 0.45, 0.55);
+    return star * color * tint;
 }
 
 // Stabilizes the star field by sampling at the four neighboring integer coordinates and
@@ -67,7 +68,7 @@ vec3 draw_galaxy(vec3 ray_dir, out float galaxy_luminance) {
 
     float galaxy_intensity = 0.05 + (1.2 * (1 +- lightpollution)) * linear_step(-0.1, 0.25, -sun_dir.y);
 
-    float lon_rotation = radians(30.0); // Adjust this value as needed
+    float lon_rotation = radians(30.0); // Base rotation of the sky
 
     float lon = atan(ray_dir.x, ray_dir.z) + lon_rotation;
 
