@@ -39,7 +39,7 @@ vec3 get_sun_tint() {
 }
 
 float get_moon_exposure() {
-	const float base_scale = 0.66 * MOON_I;
+	const float base_scale = MOON_I;
 
 	return base_scale * moon_phase_brightness;
 }
@@ -51,13 +51,20 @@ vec3 get_moon_tint() {
 }
 
 vec3 get_light_color() {
-	vec3 light_color  = mix(get_sun_exposure() * get_sun_tint(), get_moon_exposure() * get_moon_tint(), step(0.5, sunAngle));
-	     light_color *= sunlight_color * atmosphere_transmittance(light_dir.y, planet_radius);
-	     light_color *= clamp01(rcp(0.02) * light_dir.y); // fade away during day/night transition
-		 light_color *= 1.0 - 0.25 * pulse(abs(light_dir.y), 0.15, 0.11);
-		 light_color *= 1.0 - rainStrength;
+    vec3 sun_light = get_sun_exposure() * get_sun_tint();
+    vec3 moon_light = get_moon_exposure() * get_moon_tint();
 
-	return light_color;
+    vec3 night_sky_tint = vec3(0.6, 0.6, 1.0);
+    float night_factor = 1.0 - smoothstep(0.0, 0.5, sunAngle);
+
+    vec3 light_color = mix(sun_light, moon_light, step(0.5, sunAngle));
+    light_color += night_sky_tint * night_factor;
+    light_color *= sunlight_color * atmosphere_transmittance(light_dir.y, planet_radius);
+    light_color *= clamp01(rcp(0.02) * light_dir.y);
+    light_color *= 1.0 - 0.25 * pulse(abs(light_dir.y), 0.15, 0.11);
+    light_color *= 1.0 - rainStrength;
+
+    return light_color;
 }
 
 float get_skylight_boost() {
