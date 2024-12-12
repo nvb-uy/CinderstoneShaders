@@ -66,7 +66,7 @@ vec3 draw_stars(vec3 ray_dir, float galaxy_luminance) {
 vec3 draw_galaxy(vec3 ray_dir, out float galaxy_luminance) {
     const vec3 galaxy_tint = vec3(0.5, 0.5, 0.7) * GALAXY_INTENSITY;
 
-    float galaxy_intensity = 0.05 + (1.2 * (1 +- lightpollution)) * linear_step(-0.1, 0.25, -sun_dir.y);
+    float galaxy_intensity = 0.05 + (0.6 * (1 +- lightpollution)) * linear_step(-0.1, 0.25, -sun_dir.y);
 
     float lon_rotation = radians(30.0); // Base rotation of the sky
 
