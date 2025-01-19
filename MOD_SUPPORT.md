@@ -5,6 +5,7 @@ Format: MOD_NAME (MOD_ID) by AUTHOR(s)
 - Prominent (prominent) by ElocinDev
 - Alloy Forgery (alloy_forgery) by Shotokhan
 - Aquamirae (aquamirae) by Shotokhan
+- Create (create) by Shotokhan
 
 ## Partial Support
 - 
