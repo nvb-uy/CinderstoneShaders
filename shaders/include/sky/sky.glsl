@@ -49,6 +49,15 @@ vec3 stable_star_field(vec2 coord, float star_threshold) {
 uniform sampler2D colortex14;
 
 vec3 draw_stars(vec3 ray_dir, float galaxy_luminance) {
+#if defined WORLD_OVERWORLD && defined SHADOW
+	// Trick to make stars rotate with sun and moon
+	mat3 rot = (sunAngle < 0.5)
+		? mat3(shadowModelViewInverse)
+		: mat3(-shadowModelViewInverse[0].xyz, shadowModelViewInverse[1].xyz, -shadowModelViewInverse[2].xyz);
+
+	ray_dir *= rot;
+#endif
+
 	// Adjust star threshold so that brightest stars appear first
 #if defined WORLD_OVERWORLD
 	float star_threshold = 1.0 - 0.008 * STARS_COVERAGE * smoothstep(-0.2, 0.05, -sun_dir.y) - 0.5 * cube(galaxy_luminance);
@@ -62,6 +71,7 @@ vec3 draw_stars(vec3 ray_dir, float galaxy_luminance) {
 
 	return stable_star_field(coord, star_threshold);
 }
+
 
 vec3 draw_galaxy(vec3 ray_dir, out float galaxy_luminance) {
     const vec3 galaxy_tint = vec3(0.5, 0.5, 0.7) * GALAXY_INTENSITY;
@@ -145,10 +155,28 @@ vec4 get_clouds_and_aurora(vec3 ray_dir, vec3 clear_sky) {
 #endif
 }
 
+vec3 rgb2hsv(vec3 c)
+{
+    vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
+    vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
+    vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));
+
+    float d = q.x - min(q.w, q.y);
+    float e = 1.0e-10;
+    return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
+}
+
+vec3 hsv2rgb(vec3 c)
+{
+    vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+    vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
+    return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
+}
+
 vec3 draw_sky(vec3 ray_dir, vec3 atmosphere) {
 	vec3 sky = vec3(0.0);
 
-#if defined SHADOW
+	#if defined SHADOW
 	// Trick to make stars rotate with sun and moon
 	mat3 rot = (sunAngle < 0.5)
 		? mat3(shadowModelViewInverse)
@@ -191,12 +219,12 @@ vec3 draw_sky(vec3 ray_dir, vec3 atmosphere) {
 		sky += vanilla_sky_color * brightness_scale;
 	}
 
-#ifdef CUSTOM_SKY
+	#ifdef CUSTOM_SKY
 	if (vanilla_sky_id == 4) {
-		sky += vanilla_sky_color * CUSTOM_SKY_BRIGHTNESS;
+		sky += vanilla_sky_color * CUSTOM_SKY_BRIGHTNESS;		
 	}
-#endif
-#endif
+	#endif
+	#endif
 
 	// Sky gradient
 
@@ -262,7 +290,28 @@ vec3 getCosmicGlow(vec3 ray_dir, int iterations) {
     return totalGlow;
 }
 
-vec3 draw_sun(vec3 ray_dir) {
+
+float rand(vec2 co){
+    return fract(sin(dot(co.xy ,vec2(12.9898, 78.233))) * 43758.5453);
+}
+
+vec3 getCosmicGlow(vec3 ray_dir, int iterations) {
+    vec3 totalGlow = vec3(0.0);
+
+    for (int i = 0; i < iterations; i++) {
+        vec3 randomPosition = vec3(rand(vec2(i, i)), rand(vec2(i + 1, i + 1)), rand(vec2(i + 2, i + 2)));
+        vec3 cosmicColor = vec3(rand(vec2(i + 3, i + 3)), rand(vec2(i + 4, i + 4)), rand(vec2(i + 5, i + 5))) * 0.15;
+
+        float glowRadius = 1.5;
+        float distanceToGlow = length(ray_dir - randomPosition);
+        float glow = smoothstep(glowRadius, 0.0, distanceToGlow);
+        totalGlow += cosmicColor * glow / 8 * END_COSMIC_GLOW_INTENSITY;
+    }
+
+    return totalGlow;
+}
+
+vec3 drawEndSkyFeatures(vec3 ray_dir) {
 	float nu = dot(ray_dir, sun_dir);
 	float r = fast_acos(nu);
 
@@ -337,7 +386,7 @@ vec3 draw_sky(vec3 ray_dir) {
 	// Stars
 
 	vec3 stars_fade = exp2(-0.1 * max0(1.0 - ray_dir.y) / max(ambient_color, eps)) * linear_step(-0.2, 0.0, ray_dir.y);
-	sky += draw_stars(ray_dir, 0.0).xzy * stars_fade;
+	sky += draw_stars(ray_dir).xzy * stars_fade;
 #endif
 
 	return sky;
