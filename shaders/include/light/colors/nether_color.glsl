@@ -17,6 +17,15 @@ vec3 get_ambient_color() {
 	vec3 nether_color  = from_srgb(vec3(NETHER_R, NETHER_G, NETHER_B)) * 0.1 * NETHER_I;
 #endif
 
+#ifdef WORLD_VAAZ_WARM_AMBIENCE
+	const vec3 vaaz_warm_tint = from_srgb(vec3(1.0, 0.78, 0.60));
+	float ambient_luminance = max(dot(nether_color, luminance_weights_rec2020), eps);
+	vec3 warm_ambient = ambient_luminance * vaaz_warm_tint / max(dot(vaaz_warm_tint, luminance_weights_rec2020), eps);
+
+	nether_color = mix(nether_color, warm_ambient, 0.75);
+	nether_color *= 1.25;
+#endif
+
 	return nether_color;
 }
 

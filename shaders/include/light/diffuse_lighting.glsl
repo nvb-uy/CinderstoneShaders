@@ -161,7 +161,11 @@ vec3 get_diffuse_lighting(
 
 #if defined WORLD_NETHER
 	// Brighten + desaturate nether ambient
+	#ifdef WORLD_VAAZ_WARM_AMBIENCE
+	skylight = 16.0 * directional_lighting * mix(skylight, vec3(dot(skylight, luminance_weights_rec2020)), 0.15);
+	#else
 	skylight = 16.0 * directional_lighting * mix(skylight, vec3(dot(skylight, luminance_weights_rec2020)), 0.5);
+	#endif
 #endif
 
 	lighting += skylight * get_skylight_falloff(light_levels.y);
