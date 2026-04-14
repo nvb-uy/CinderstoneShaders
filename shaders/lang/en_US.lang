@@ -42,6 +42,7 @@ screen.end_settings                    = End World Features
 
 screen.aurora                          = Aurora
 screen.clouds                          = Clouds
+screen.sky_pollution                   = Sky Pollution
 screen.clouds_cumulus                  = Cumulus Clouds Settings
 screen.clouds_altocumulus              = Altocumulus Clouds Settings
 screen.clouds_cumulus_congestus        = Cumulus Congestus Clouds Settings
@@ -244,6 +245,16 @@ option.STARS_INTENSITY                 = Stars Intensity
 option.STARS_INTENSITY.comment         = Controls the brightness of stars in the night sky
 option.STARS_COVERAGE                  = Stars Coverage
 option.STARS_COVERAGE.comment          = Controls the number of stars in the night sky
+option.OVERWORLD_MOON_PHASE_POLLUTION  = Moon Phase Pollution
+option.OVERWORLD_MOON_PHASE_POLLUTION.comment = How strongly moon phase washes out the Overworld stars and Milky Way
+option.OVERWORLD_BLOCKLIGHT_POLLUTION  = Blocklight Pollution
+option.OVERWORLD_BLOCKLIGHT_POLLUTION.comment = How strongly nearby blocklight washes out the Overworld stars and Milky Way
+option.OVERWORLD_BLOCKLIGHT_POLLUTION_START = Blocklight Pollution Start
+option.OVERWORLD_BLOCKLIGHT_POLLUTION_START.comment = Minimum nearby blocklight needed before the night sky begins fading
+option.OVERWORLD_STARS_POLLUTION       = Stars Pollution
+option.OVERWORLD_STARS_POLLUTION.comment = Extra pollution sensitivity applied specifically to Overworld stars
+option.OVERWORLD_GALAXY_POLLUTION      = Galaxy Pollution
+option.OVERWORLD_GALAXY_POLLUTION.comment = Extra pollution sensitivity applied specifically to the Overworld Milky Way
 
 # Clouds
 option.CLOUDS_CUMULUS                       = Cumulus Clouds

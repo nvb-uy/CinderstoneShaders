@@ -44,6 +44,12 @@ float get_moon_exposure() {
 	return base_scale * moon_phase_brightness;
 }
 
+float get_moon_sky_exposure() {
+	// Keep new-moon ambient for gameplay lighting, but remove the visible moon/halo from the sky.
+	float sky_visibility = linear_step(0.51, 0.625, moon_phase_brightness);
+	return get_moon_exposure() * sky_visibility;
+}
+
 vec3 get_moon_tint() {
 	const vec3 base_tint = from_srgb(vec3(MOON_R, MOON_G, MOON_B));
 

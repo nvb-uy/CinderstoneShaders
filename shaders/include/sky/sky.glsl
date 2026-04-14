@@ -8,6 +8,43 @@
 
 uniform float lightpollution;
 
+#if defined WORLD_OVERWORLD
+uniform float eye_blocklight;
+
+float combine_sky_pollution(float a, float b) {
+	return a + b - a * b;
+}
+
+float get_moon_phase_sky_pollution() {
+	float moon_pollution = linear_step(0.5, 0.8, lightpollution);
+	return clamp01(moon_pollution * OVERWORLD_MOON_PHASE_POLLUTION);
+}
+
+float get_blocklight_sky_pollution() {
+	float blocklight_pollution = smoothstep(
+		OVERWORLD_BLOCKLIGHT_POLLUTION_START,
+		1.0,
+		clamp01(eye_blocklight)
+	);
+	return clamp01(blocklight_pollution * OVERWORLD_BLOCKLIGHT_POLLUTION);
+}
+
+float get_overworld_sky_pollution() {
+	float moon_pollution = get_moon_phase_sky_pollution();
+	float blocklight_pollution = get_blocklight_sky_pollution();
+	return combine_sky_pollution(moon_pollution, blocklight_pollution);
+}
+
+float get_overworld_sky_visibility(float pollution_strength) {
+	return clamp01(1.0 - pollution_strength * get_overworld_sky_pollution());
+}
+
+float get_overworld_star_visibility() {
+	const float polluted_star_floor = 0.06;
+	return mix(polluted_star_floor, 1.0, get_overworld_sky_visibility(OVERWORLD_STARS_POLLUTION));
+}
+#endif
+
 // Stars based on https://www.shadertoy.com/view/Md2SR3
 
 vec3 unstable_star_field(vec2 coord, float star_threshold) {
@@ -46,12 +83,25 @@ vec3 stable_star_field(vec2 coord, float star_threshold) {
 	     + unstable_star_field(i + vec2(1.0, 1.0), star_threshold) * f.x * f.y;
 }
 
+vec3 pixelated_star_field(vec2 coord, float star_threshold, float pixel_size) {
+	coord = abs(coord) + 33.3 * step(0.0, coord);
+
+	float cell_size = max(pixel_size, 1.0);
+	vec2 cell = floor(coord / cell_size) * cell_size + 0.5 * cell_size;
+
+	return unstable_star_field(cell, star_threshold);
+}
+
 uniform sampler2D colortex14;
 
 vec3 draw_stars(vec3 ray_dir, float galaxy_luminance) {
 	// Adjust star threshold so that brightest stars appear first
 #if defined WORLD_OVERWORLD
+	float sky_pollution = get_overworld_sky_pollution();
 	float star_threshold = 1.0 - 0.008 * STARS_COVERAGE * smoothstep(-0.2, 0.05, -sun_dir.y) - 0.5 * cube(galaxy_luminance);
+	      star_threshold += 0.008 * OVERWORLD_STARS_POLLUTION * sky_pollution;
+	// Keep the threshold below 1.0 so linear_step() stays stable and max pollution still leaves a few stars.
+	      star_threshold = clamp(star_threshold, 0.0, 0.995);
 #else
 	float star_threshold = 1.0 - 0.008 * STARS_COVERAGE;
 #endif
@@ -60,13 +110,23 @@ vec3 draw_stars(vec3 ray_dir, float galaxy_luminance) {
 	vec2 coord  = ray_dir.xy * rcp(abs(ray_dir.z) + length(ray_dir.xy)) + 41.21 * sign(ray_dir.z);
 	     coord *= 600.0;
 
-	return stable_star_field(coord, star_threshold);
+	vec3 stars = pixelated_star_field(coord, star_threshold, STAR_PIXEL_SIZE);
+
+#if defined WORLD_OVERWORLD
+	stars *= get_overworld_star_visibility();
+#endif
+
+	return stars;
 }
 
 vec3 draw_galaxy(vec3 ray_dir, out float galaxy_luminance) {
     const vec3 galaxy_tint = vec3(0.5, 0.5, 0.7) * GALAXY_INTENSITY;
 
-    float galaxy_intensity = 0.05 + (0.6 * (1 +- lightpollution)) * linear_step(-0.1, 0.25, -sun_dir.y);
+    float galaxy_intensity = 0.6 * linear_step(-0.1, 0.25, -sun_dir.y);
+
+#if defined WORLD_OVERWORLD
+    galaxy_intensity *= get_overworld_sky_visibility(OVERWORLD_GALAXY_POLLUTION);
+#endif
 
     float lon_rotation = radians(30.0); // Base rotation of the sky
 
@@ -185,7 +245,7 @@ vec3 draw_sky(vec3 ray_dir, vec3 atmosphere) {
 	sky += draw_sun(ray_dir);
 #endif
 
-	if (vanilla_sky_id == 3 && max_of(vanilla_sky_color) > 0.1) {
+	if (moonPhase != 4 && vanilla_sky_id == 3 && max_of(vanilla_sky_color) > 0.1) {
 		const vec3 brightness_scale = sunlight_color * moon_luminance;
 		sky *= 0.0; // Hide stars behind moon
 		sky += vanilla_sky_color * brightness_scale;
@@ -282,6 +342,13 @@ vec3 getCosmicGlow(vec3 ray_dir, int iterations) {
 }
 
 vec3 draw_sun(vec3 ray_dir) {
+	vec3 cosmic_glow = vec3(0.0);
+	#ifdef END_COSMIC_GLOW
+	cosmic_glow = getCosmicGlow(ray_dir, 5);
+	#endif
+
+	if (dot(ray_dir, sun_dir) <= 0.0) return cosmic_glow;
+
 	vec3 tangent = sun_dir.y == 1.0 ? vec3(1.0, 0.0, 0.0) : normalize(cross(vec3(0.0, 1.0, 0.0), sun_dir));
 	vec3 bitangent = normalize(cross(tangent, sun_dir));
 
@@ -339,11 +406,7 @@ vec3 draw_sun(vec3 ray_dir) {
 		+ flare_color2 * rcp(sun_solid_angle) * max0(1.5 * flare2);
 	#endif
 
-	return
-		#ifdef END_COSMIC_GLOW
-		getCosmicGlow(ray_dir, 5) +
-		#endif
-		black_hole;
+	return cosmic_glow + black_hole;
 }
 
 vec3 draw_sky(vec3 ray_dir) {

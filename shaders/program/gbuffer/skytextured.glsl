@@ -91,6 +91,8 @@ void main() {
 
 #ifdef VANILLA_MOON
 	case MC_RENDER_STAGE_MOON:
+		if (moonPhase == 4) discard;
+
 	 	// Alpha of 3 <=> moon
 		scene_color.a = 3.0 / 255.0;
 
@@ -108,6 +110,8 @@ void main() {
 		break;
 #else
 	case MC_RENDER_STAGE_MOON:
+		if (moonPhase == 4) discard;
+
 	 	// Alpha of 3 <=> moon
 		scene_color.a = 3.0 / 255.0;
 
