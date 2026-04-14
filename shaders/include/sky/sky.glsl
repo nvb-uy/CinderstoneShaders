@@ -43,6 +43,12 @@ float get_overworld_star_visibility() {
 	const float polluted_star_floor = 0.06;
 	return mix(polluted_star_floor, 1.0, get_overworld_sky_visibility(OVERWORLD_STARS_POLLUTION));
 }
+
+float get_overworld_star_day_visibility() {
+	float twilight_visibility = 1.0 - smoothstep(-0.16, 0.06, sun_dir.y);
+	float daylight_visibility = 1.0 - smoothstep(0.0, 0.85, clamp01(time_sunrise + time_noon));
+	return clamp01(twilight_visibility * daylight_visibility);
+}
 #endif
 
 // Stars based on https://www.shadertoy.com/view/Md2SR3
@@ -113,7 +119,8 @@ vec3 draw_stars(vec3 ray_dir, float galaxy_luminance) {
 	vec3 stars = pixelated_star_field(coord, star_threshold, STAR_PIXEL_SIZE);
 
 #if defined WORLD_OVERWORLD
-	stars *= get_overworld_star_visibility();
+	// Let pollution control density, but use a dedicated fade so stars fully vanish through sunrise/day.
+	stars *= get_overworld_star_visibility() * get_overworld_star_day_visibility();
 #endif
 
 	return stars;
