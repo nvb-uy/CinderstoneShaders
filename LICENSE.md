@@ -1,5 +1,5 @@
 # Cinderstone Shaders
-Fork of Hysteria Shaders by ElocinDev
+Fork of Hysteria Shaders by ElocinDev, made for the Prominence modpack.
 
 ### AGNYA License
 
