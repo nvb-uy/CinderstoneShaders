@@ -246,6 +246,25 @@ float rand(vec2 co){
     return fract(sin(dot(co.xy ,vec2(12.9898, 78.233))) * 43758.5453);
 }
 
+vec2 pixelate_end_black_hole_coord(vec2 coord, float grid_scale) {
+	const float sprite_extent = 3.0;
+	float grid = max(END_BLACK_HOLE_PIXEL_GRID * grid_scale, 1.0);
+
+	vec2 sprite_uv = coord / (2.0 * sprite_extent) + 0.5;
+	     sprite_uv = (floor(sprite_uv * grid) + 0.5) / grid;
+
+	return (sprite_uv - 0.5) * (2.0 * sprite_extent);
+}
+
+vec2 get_end_black_hole_plane(vec3 ray_dir, vec3 tangent, vec3 bitangent, float scale, float grid_scale) {
+	vec2 plane = vec2(dot(ray_dir, tangent), dot(ray_dir, bitangent)) * rcp(max(scale, eps));
+	return pixelate_end_black_hole_coord(plane * rcp(max(sun_angular_radius, eps)), grid_scale) * sun_angular_radius;
+}
+
+vec3 end_black_hole_plane_to_ray_dir(vec2 plane, vec3 tangent, vec3 bitangent) {
+	return normalize(sun_dir + plane.x * tangent + plane.y * bitangent);
+}
+
 vec3 getCosmicGlow(vec3 ray_dir, int iterations) {
     vec3 totalGlow = vec3(0.0);
 
@@ -263,62 +282,68 @@ vec3 getCosmicGlow(vec3 ray_dir, int iterations) {
 }
 
 vec3 draw_sun(vec3 ray_dir) {
-	float nu = dot(ray_dir, sun_dir);
-	float r = fast_acos(nu);
+	vec3 tangent = sun_dir.y == 1.0 ? vec3(1.0, 0.0, 0.0) : normalize(cross(vec3(0.0, 1.0, 0.0), sun_dir));
+	vec3 bitangent = normalize(cross(tangent, sun_dir));
 
-	ray_dir.z *= -0.1; ray_dir.x *= -1.52;
+	vec2 black_hole_plane = get_end_black_hole_plane(ray_dir, tangent, bitangent, END_BLACK_HOLE_SCALE, 1.0);
+	vec2 flare_plane      = get_end_black_hole_plane(ray_dir, tangent, bitangent, END_BLACK_HOLE_FLARE_SCALE, END_BLACK_HOLE_FLARE_PIXEL_GRID_SCALE);
 
-	ray_dir *= mat3(
+	vec3 black_hole_ray_dir = end_black_hole_plane_to_ray_dir(black_hole_plane, tangent, bitangent);
+	vec3 flare_ray_dir      = end_black_hole_plane_to_ray_dir(flare_plane, tangent, bitangent);
+
+	float r_hole  = fast_acos(dot(black_hole_ray_dir, sun_dir));
+	float r_flare = fast_acos(dot(flare_ray_dir, sun_dir));
+
+	flare_ray_dir.z *= -0.1; flare_ray_dir.x *= -1.52;
+
+	flare_ray_dir *= mat3(
         cos(radians(-90.0)), -sin(radians(90.0)), 1.0,
         sin(radians(90.0)), cos(radians(-90.0)), 2.0,
         -0.0, 0.0, 0.0
     );
 
-	ray_dir += 0.15;
+	flare_ray_dir += 0.15;
 
 	// Sun disk
 
-	const vec3 alpha = vec3(0.6, 0.5, 0.4);
-	float center_to_edge = max0(sun_angular_radius - r);
-	vec3 limb_darkening = pow(vec3(1.0 - sqr(1.0 - center_to_edge)), -0.225 * alpha);
-	vec3 sun_disk = vec3(r < sun_angular_radius);
+	vec3 sun_disk = vec3(r_hole < sun_angular_radius);
 
 	// Solar flare effect
 
 	// Transform the coordinate space such that z is parallel to sun_dir
-	vec3 tangent = sun_dir.y == 1.0 ? vec3(1.0, 0.0, 0.0) : normalize(cross(vec3(0.0, 1.0, 0.0), sun_dir));
-	vec3 bitangent = normalize(cross(tangent, sun_dir));
-	mat3 rot = mat3(tangent, bitangent, sun_dir) ;//* -18.37;
+	mat3 rot = mat3(tangent, bitangent, sun_dir);
 
 	// Vector from ray dir to sun dir
-	vec2 q = ((ray_dir + sun_dir) * rot).xy;
-	
-	float theta = fract(linear_step(-pi, pi, atan(q.y, q.x)) + 0.015 * frameTimeCounter - 0.33 * r);
+	vec2 q = ((flare_ray_dir + sun_dir) * rot).xy;
 
-	float flare1 = texture(noisetex, vec2(theta, r - 0.025 * frameTimeCounter * 1.25)).x;
-    flare1 = pow5(flare1) * exp(-25.0 * (r - sun_angular_radius));
-    flare1 = r < sun_angular_radius ? 0.0 : flare1;
+	float theta = fract(linear_step(-pi, pi, atan(q.y, q.x)) + 0.015 * frameTimeCounter - 0.33 * r_flare);
 
-    float theta2 = fract(linear_step(-pi, pi, atan(q.y, q.x)) + -0.0002 * frameTimeCounter - 0.33 * (r + 0.05));
-    float flare2 = texture(noisetex, vec2(theta2, r - 0.025 * frameTimeCounter)).x;
-    flare2 = pow5(flare2) * exp(-20 * (r - sun_angular_radius / 2));
-    flare2 = r < sun_angular_radius ? 0.0 : flare2;
+	float flare1 = texture(noisetex, vec2(theta, r_flare - 0.025 * frameTimeCounter * 1.25)).x;
+    flare1 = pow5(flare1) * exp(-25.0 * (r_flare - sun_angular_radius));
+    flare1 = r_hole < sun_angular_radius ? 0.0 : flare1;
+
+    float theta2 = fract(linear_step(-pi, pi, atan(q.y, q.x)) + -0.0002 * frameTimeCounter - 0.33 * (r_flare + 0.05));
+    float flare2 = texture(noisetex, vec2(theta2, r_flare - 0.025 * frameTimeCounter)).x;
+    flare2 = pow5(flare2) * exp(-20.0 * (r_flare - sun_angular_radius / 2.0));
+    flare2 = r_hole < sun_angular_radius ? 0.0 : flare2;
 
     vec3 flare_color1 = end_sun_color;
     vec3 flare_color2 = vec3(0.8, 0.3, 0.0);
 
-	// Black hole time!
-    return
+	vec3 black_hole = vec3(0.0);
+
+	#ifdef END_BLACK_HOLE
+	black_hole =
+		(vec3(0.0, 0.0, 0.0) * max0(sun_disk)) * 100.0
+		+ flare_color1 * rcp(sun_solid_angle) * max0(0.5 * flare1)
+		+ flare_color2 * rcp(sun_solid_angle) * max0(1.5 * flare2);
+	#endif
+
+	return
 		#ifdef END_COSMIC_GLOW
 		getCosmicGlow(ray_dir, 5) +
 		#endif
-		#ifdef END_BLACK_HOLE
-		((vec3(0.0, 0.0, 0.0) * max0(sun_disk) ) * 100 
-		+ flare_color1 * rcp(sun_solid_angle) * max0(0.5 * flare1) 
-		+ flare_color2 * rcp(sun_solid_angle) * max0(1.5 * flare2));
-		#else
-		vec3(0.0);
-		#endif
+		black_hole;
 }
 
 vec3 draw_sky(vec3 ray_dir) {
